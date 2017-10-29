@@ -215,7 +215,7 @@ class BaseConfig(object):
         """
 
         psedottyargs = "" if self.command else "-t"
-        cmd = "docker run --privileged=true --rm -h builder -i %s -v /etc/localtime:/etc/localtime -v %s:/opt docker-builder %s %s %s \"%s\"" \
+        cmd = "docker run --privileged=true --rm -h builder -i %s -v /etc/localtime:/etc/localtime -v %s:/opt builder:osng %s %s %s \"%s\"" \
             % (psedottyargs, os.getcwd(), self.uid, self.gid, self.builddir, " ".join(self.command))
 
         self.logger.note("Running build machine!")
