@@ -13,6 +13,7 @@ shopt -s histappend
 # for setting history length see HISTSIZE and HISTFILESIZE in bash(1)
 HISTSIZE=1000
 HISTFILESIZE=2000
+HISTFILE=/opt/acrn-yocto/@@BUILD_DIR@@/.builder_bash_history
 
 # for getting aliases to expand in non-interactive shells
 shopt -s expand_aliases
@@ -29,6 +30,9 @@ shopt -s checkwinsize
 export LANG="en_US.UTF-8"
 export LANGUAGE="en_US.UTF-8"
 export LC_ALL="en_US.UTF-8"
+
+# | (gnome-terminal:131): WARNING **: Couldn't connect to accessibility bus
+export NO_AT_BRIDGE=1
 
 # make less more friendly for non-text input files, see lesspipe(1)
 #[ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
@@ -113,6 +117,6 @@ if ! shopt -oq posix; then
 fi
 
 if shopt -q login_shell; then
-  cd /opt/sources/openembedded-core
-  source /opt/sources/meta-osng/scripts/osng-init-build-env /opt/##BUILD_DIR##
+  cd /opt/acrn-yocto
+  . sources/meta-acrn/acrn-init-build-env @@BUILD_DIR@@
 fi

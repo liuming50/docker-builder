@@ -1,20 +1,21 @@
 #!/usr/bin/env python
 
+import argparse
+import errno
+import fcntl
+import hashlib
 import os
 import re
+import shutil
+import subprocess
 import sys
 import time
-import fcntl
-import errno
-import struct
-import socket
-import hashlib
-import argparse
-import subprocess
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-b", "--builddir", help = "path of build directory (defaults to 'build')", default = "build")
-parser.add_argument("-c", "--command", help = "run build command directly and exit the builder", type = str, default = "", nargs = argparse.REMAINDER)
+parser.add_argument("-a", "--android", help ="path of Celadon Android source", type = str, default = "")
+parser.add_argument("-b", "--builddir", help ="path of build directory (defaults to 'build')", type = str, default = "build")
+parser.add_argument("-c", "--cleanconf", help = "path of build directory (defaults to 'build')", action = "store_true")
+parser.add_argument("-t", "--command", help = "run build command directly and exit the builder", type = str, default = "", nargs = argparse.REMAINDER)
 
 args = parser.parse_args()
 
@@ -74,13 +75,11 @@ class BaseConfig(object):
     logger = Logger()
 
     def __init__(self):
-        self.builddir = ""
-        self.command = ""
-        self.uid = 1000
+        self.uid = os.getuid()
         self.gid = 27
 
         # Any change in the listed items will triger a rebuild
-        self.checkfilelist = "builder-files Dockerfile start.sh"
+        self.checkfilelist = "home Dockerfile start.sh"
         self.checkvarslist = "builddir"
 
     def _mkdirhier(self, directory):
@@ -108,21 +107,26 @@ class BaseConfig(object):
         variables according to how it's being called
         """
 
+        if self.uid == 0:
+            self.logger.error("setup script can not be run by 'root' user.")
+            exit(1)
+
         self.builddir = args.builddir
         self.command = args.command
+        self.android_opts = "-v %s:/opt/acrn-yocto/celadon" % args.android if args.android else ""
 
     def change_cwd(self):
         """
         Ensure the current working directory is same with the
         directory where this script is locating in, and the script
-        itself should be a symbolic link to docker-builder/setup.
+        itself should be a symbolic link to docker/setup.
         """
 
         try:
-            if os.readlink(__file__) != os.path.join("docker-builder", "setup"):
+            if os.readlink(__file__) != os.path.join("docker", "setup"):
                 raise OSError("The link target does not exist.")
         except OSError:
-            self.logger.error("setup can not directly run in this folder.")
+            self.logger.error("setup script must be run in the top directory. (not in this docker directory)")
             exit(1)
 
         execdir = os.path.dirname(os.path.abspath(__file__))
@@ -159,7 +163,7 @@ class BaseConfig(object):
 
     def build_image(self):
         """
-        Build docker-builder image if it does not exist, or compare its
+        Build builder image if it does not exist, or compare its
         '.Created' information with the 'Modify' timestamp of all files
         in checkfilelist, and rebuild the image if any of the timestamp
         is later than image 'Created' time.
@@ -168,13 +172,13 @@ class BaseConfig(object):
         rebuild = False
         nocache = "false"
         try:
-            output = subprocess.check_output("docker inspect --format={{.Created}} builder:osng 2>/dev/null", shell = True)
+            output = subprocess.check_output("docker inspect --format={{.Created}} builder:acrn-yocto 2>/dev/null", shell = True)
             m = re.match(r'(^[0-9]{4}-[0-9]{2}-[0-9]{2})[a-zA-Z ]{1}([0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}).*$', output)
             created = time.mktime(time.strptime('%s %s' % (m.group(1), m.group(2)), '%Y-%m-%d %H:%M:%S.%f'))
 
             # Check file 'Modify' timestamp of checkfilelist
             for l in self.checkfilelist.split():
-                p = "docker-builder/%s" % l
+                p = "docker/%s" % l
                 if os.path.isdir(p):
                     for root, _, files in os.walk(p):
                         for f in files:
@@ -206,19 +210,27 @@ class BaseConfig(object):
             rebuild = True
 
         if rebuild:
+            cmd = "cd docker; docker build --no-cache=%s -t builder:acrn-yocto ./" % nocache
             self.logger.note("Building docker builder image... (This may take some time.)")
-            subprocess.check_output("cd docker-builder; docker build --no-cache=%s -t builder:osng ./" % nocache, shell = True)
+            subprocess.check_output(cmd, shell = True)
 
     def start_image(self):
         """
         Start the builder image in docker
         """
 
-        psedottyargs = "" if self.command else "-t"
-        cmd = "docker run --privileged=true --rm -h builder -i %s -v /etc/localtime:/etc/localtime -v %s:/opt builder:osng %s %s %s \"%s\"" \
-            % (psedottyargs, os.getcwd(), self.uid, self.gid, self.builddir, " ".join(self.command))
+        conf = "%s/conf" % self.builddir
+        if args.cleanconf and os.path.exists(conf):
+            shutil.rmtree(conf)
 
-        self.logger.note("Running build machine!")
+        psedottyargs = "" if self.command else "-t"
+        cmd = "docker run --privileged=true --rm -h Ubuntu-Xenial -e DISPLAY=:0 -i %s \
+            -v /etc/localtime:/etc/localtime \
+            -v /tmp/.X11-unix:/tmp/.X11-unix \
+            -v %s:/opt/acrn-yocto %s builder:acrn-yocto %s %s \"%s\" \"%s\"" \
+            % (psedottyargs, os.getcwd(), self.android_opts, self.uid, self.gid, self.builddir, " ".join(self.command))
+
+        self.logger.note("Running build machine...")
         return subprocess.call(cmd, shell = True)
 
     def setup(self):

@@ -2,8 +2,8 @@
 #
 # ~/.screenrc
 #
-#   This specific screenrc will change the default behavior of screen system
-#   wide /etc/screenrc
+#   This is the Atlas Copco specific screenrc, it will change the default
+#   behavior of screen system wide /etc/screenrc
 #
 #   Commands in this file are used to set options, bind screen functions to
 #   keys, redefine terminal capabilities, and to automatically establish one or
