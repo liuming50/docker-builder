@@ -118,5 +118,5 @@ fi
 
 if shopt -q login_shell; then
   cd /opt/acrn-yocto
-  . sources/meta-acrn/acrn-init-build-env @@BUILD_DIR@@
+  . acrn-init-build-env @@BUILD_DIR@@
 fi
