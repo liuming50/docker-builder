@@ -118,5 +118,6 @@ fi
 
 if shopt -q login_shell; then
   cd /opt/acrn-yocto
+  . acrn-init-celadon-host-tools
   . acrn-init-build-env @@BUILD_DIR@@
 fi
