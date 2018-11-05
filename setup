@@ -115,7 +115,7 @@ class BaseConfig(object):
         self.builddir = args.builddir
         self.command = args.command
         self.android_opts = "-v %s:/opt/acrn-yocto/celadon" % args.android if args.android else ""
-        self.downloads_opts = "-v %s:/opt/linkmotion/downloads" % args.downloads if args.downloads else ""
+        self.downloads_opts = "-v %s:/opt/acrn-yocto/downloads" % args.downloads if args.downloads else ""
 
     def change_cwd(self):
         """
@@ -229,7 +229,7 @@ class BaseConfig(object):
         cmd = "docker run --privileged=true --rm -h Ubuntu-Xenial -e DISPLAY=:0 -i %s \
             -v /etc/localtime:/etc/localtime \
             -v /tmp/.X11-unix:/tmp/.X11-unix \
-            -v %s:/opt/acrn-yocto %s builder:acrn-yocto %s %s \"%s\" \"%s\" \"%s\"" \
+            -v %s:/opt/acrn-yocto %s %s builder:acrn-yocto %s %s \"%s\" \"%s\"" \
             % (psedottyargs, os.getcwd(), self.android_opts, self.downloads_opts, self.uid, self.gid, self.builddir, " ".join(self.command))
 
         self.logger.note("Running build machine...")
